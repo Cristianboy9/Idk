@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Roblox Audio Fixer</title>
+<title>Roblox Audio Effect Fixer</title>
+
+<script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
 
 <style>
 body{
@@ -35,149 +37,57 @@ margin:10px;
 
 <body>
 
-<h1>Roblox Pitch Audio Fixer</h1>
+<h1>Roblox Audio Effect Fixer</h1>
 
 <div class="container">
 
-<input type="file" id="audioFile" accept="audio/*">
+<input type="file" id="file">
 
 <br>
 
-<button onclick="processAudio()">Process</button>
-
-<button onclick="download()">Download Processed</button>
+<button onclick="process()">Apply Effects</button>
 
 <br><br>
 
-<audio id="preview" controls></audio>
+<audio id="player" controls></audio>
 
 </div>
 
 <script>
 
-let audioBuffer = null
-let processedBuffer = null
+let player = document.getElementById("player")
 
-async function processAudio(){
+async function process(){
 
-const file = document.getElementById("audioFile").files[0]
-if(!file) return alert("Upload audio first")
+const file = document.getElementById("file").files[0]
+if(!file) return alert("Upload audio")
 
-const arrayBuffer = await file.arrayBuffer()
+const url = URL.createObjectURL(file)
 
-const ctx = new AudioContext()
-audioBuffer = await ctx.decodeAudioData(arrayBuffer)
+await Tone.start()
 
-const offline = new OfflineAudioContext(
-audioBuffer.numberOfChannels,
-audioBuffer.length,
-audioBuffer.sampleRate
-)
+const playerTone = new Tone.Player(url)
 
-const source = offline.createBufferSource()
-source.buffer = audioBuffer
+const eq = new Tone.EQ3({
+low:3,
+mid:2,
+high:4,
+lowFrequency:120,
+highFrequency:6000
+})
 
-const eq1 = offline.createBiquadFilter()
-eq1.type = "lowshelf"
-eq1.frequency.value = 120
-eq1.gain.value = 3
+const saturator = new Tone.Distortion(0.1)
 
-const eq2 = offline.createBiquadFilter()
-eq2.type = "peaking"
-eq2.frequency.value = 1000
-eq2.gain.value = 2
-eq2.Q.value = 1
+const compressor = new Tone.Compressor({
+ratio:2,
+threshold:-12
+})
 
-const eq3 = offline.createBiquadFilter()
-eq3.type = "highshelf"
-eq3.frequency.value = 6000
-eq3.gain.value = 4
+playerTone.chain(eq,saturator,compressor,Tone.Destination)
 
-const compressor = offline.createDynamicsCompressor()
-compressor.threshold.value = -12
-compressor.ratio.value = 2
-compressor.attack.value = 0.01
-compressor.release.value = 0.1
+playerTone.start()
 
-source.connect(eq1)
-eq1.connect(eq2)
-eq2.connect(eq3)
-eq3.connect(compressor)
-compressor.connect(offline.destination)
-
-source.start()
-
-processedBuffer = await offline.startRendering()
-
-document.getElementById("preview").src = URL.createObjectURL(file)
-
-alert("Audio processed!")
-
-}
-
-function bufferToWave(abuffer) {
-
-let numOfChan = abuffer.numberOfChannels
-let length = abuffer.length * numOfChan * 2 + 44
-let buffer = new ArrayBuffer(length)
-let view = new DataView(buffer)
-let channels = []
-let offset = 0
-let pos = 0
-
-function setUint16(data){
-view.setUint16(pos,data,true)
-pos+=2
-}
-
-function setUint32(data){
-view.setUint32(pos,data,true)
-pos+=4
-}
-
-setUint32(0x46464952)
-setUint32(length-8)
-setUint32(0x45564157)
-
-setUint32(0x20746d66)
-setUint32(16)
-setUint16(1)
-setUint16(numOfChan)
-setUint32(abuffer.sampleRate)
-setUint32(abuffer.sampleRate*2*numOfChan)
-setUint16(numOfChan*2)
-setUint16(16)
-
-setUint32(0x61746164)
-setUint32(length-pos-4)
-
-for(let i=0;i<abuffer.numberOfChannels;i++)
-channels.push(abuffer.getChannelData(i))
-
-while(pos<length){
-for(let i=0;i<numOfChan;i++){
-let sample=Math.max(-1,Math.min(1,channels[i][offset]))
-sample=(sample<0?sample*0x8000:sample*0x7FFF)
-view.setInt16(pos,sample,true)
-pos+=2
-}
-offset++
-}
-
-return new Blob([buffer],{type:"audio/wav"})
-
-}
-
-function download(){
-
-if(!processedBuffer) return alert("Process first")
-
-let wav = bufferToWave(processedBuffer)
-
-let a = document.createElement("a")
-a.href = URL.createObjectURL(wav)
-a.download = "roblox_fixed_audio.wav"
-a.click()
+player.src = url
 
 }
 
