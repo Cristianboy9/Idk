@@ -13,10 +13,6 @@ text-align:center;
 padding:40px;
 }
 
-h1{
-color:#60a5fa;
-}
-
 .container{
 background:#1e293b;
 padding:30px;
@@ -32,14 +28,6 @@ padding:12px 20px;
 color:white;
 border-radius:8px;
 cursor:pointer;
-margin-top:10px;
-}
-
-button:hover{
-background:#2563eb;
-}
-
-input{
 margin:10px;
 }
 </style>
@@ -51,101 +39,145 @@ margin:10px;
 
 <div class="container">
 
-<p>Upload audio to prepare it for Roblox pitch 0.50</p>
-
 <input type="file" id="audioFile" accept="audio/*">
 
 <br>
 
-<button onclick="processAudio()">Process Audio</button>
+<button onclick="processAudio()">Process</button>
+
+<button onclick="download()">Download Processed</button>
 
 <br><br>
 
 <audio id="preview" controls></audio>
 
-<br>
-
-<button onclick="download()">Download Fixed Audio</button>
-
 </div>
 
 <script>
 
-let audioContext = new (window.AudioContext || window.webkitAudioContext)()
+let audioBuffer = null
 let processedBuffer = null
 
 async function processAudio(){
 
-let file = document.getElementById("audioFile").files[0]
+const file = document.getElementById("audioFile").files[0]
+if(!file) return alert("Upload audio first")
 
-if(!file){
-alert("Upload audio first")
-return
-}
+const arrayBuffer = await file.arrayBuffer()
 
-let arrayBuffer = await file.arrayBuffer()
-let buffer = await audioContext.decodeAudioData(arrayBuffer)
+const ctx = new AudioContext()
+audioBuffer = await ctx.decodeAudioData(arrayBuffer)
 
-let source = audioContext.createBufferSource()
-source.buffer = buffer
+const offline = new OfflineAudioContext(
+audioBuffer.numberOfChannels,
+audioBuffer.length,
+audioBuffer.sampleRate
+)
 
-let eq1 = audioContext.createBiquadFilter()
+const source = offline.createBufferSource()
+source.buffer = audioBuffer
+
+const eq1 = offline.createBiquadFilter()
 eq1.type = "lowshelf"
 eq1.frequency.value = 120
 eq1.gain.value = 3
 
-let eq2 = audioContext.createBiquadFilter()
+const eq2 = offline.createBiquadFilter()
 eq2.type = "peaking"
 eq2.frequency.value = 1000
 eq2.gain.value = 2
 eq2.Q.value = 1
 
-let eq3 = audioContext.createBiquadFilter()
+const eq3 = offline.createBiquadFilter()
 eq3.type = "highshelf"
 eq3.frequency.value = 6000
 eq3.gain.value = 4
 
-let compressor = audioContext.createDynamicsCompressor()
+const compressor = offline.createDynamicsCompressor()
 compressor.threshold.value = -12
 compressor.ratio.value = 2
 compressor.attack.value = 0.01
 compressor.release.value = 0.1
 
-let saturation = audioContext.createWaveShaper()
-
-let curve = new Float32Array(44100)
-for(let i=0;i<curve.length;i++){
-let x = i * 2 / curve.length - 1
-curve[i] = (3 + 10) * x * 20 * Math.PI / (Math.PI + 10 * Math.abs(x))
-}
-
-saturation.curve = curve
-
 source.connect(eq1)
 eq1.connect(eq2)
 eq2.connect(eq3)
-eq3.connect(saturation)
-saturation.connect(compressor)
-compressor.connect(audioContext.destination)
+eq3.connect(compressor)
+compressor.connect(offline.destination)
 
 source.start()
 
-processedBuffer = buffer
+processedBuffer = await offline.startRendering()
 
 document.getElementById("preview").src = URL.createObjectURL(file)
 
-alert("Effects applied! You can preview or download.")
+alert("Audio processed!")
+
+}
+
+function bufferToWave(abuffer) {
+
+let numOfChan = abuffer.numberOfChannels
+let length = abuffer.length * numOfChan * 2 + 44
+let buffer = new ArrayBuffer(length)
+let view = new DataView(buffer)
+let channels = []
+let offset = 0
+let pos = 0
+
+function setUint16(data){
+view.setUint16(pos,data,true)
+pos+=2
+}
+
+function setUint32(data){
+view.setUint32(pos,data,true)
+pos+=4
+}
+
+setUint32(0x46464952)
+setUint32(length-8)
+setUint32(0x45564157)
+
+setUint32(0x20746d66)
+setUint32(16)
+setUint16(1)
+setUint16(numOfChan)
+setUint32(abuffer.sampleRate)
+setUint32(abuffer.sampleRate*2*numOfChan)
+setUint16(numOfChan*2)
+setUint16(16)
+
+setUint32(0x61746164)
+setUint32(length-pos-4)
+
+for(let i=0;i<abuffer.numberOfChannels;i++)
+channels.push(abuffer.getChannelData(i))
+
+while(pos<length){
+for(let i=0;i<numOfChan;i++){
+let sample=Math.max(-1,Math.min(1,channels[i][offset]))
+sample=(sample<0?sample*0x8000:sample*0x7FFF)
+view.setInt16(pos,sample,true)
+pos+=2
+}
+offset++
+}
+
+return new Blob([buffer],{type:"audio/wav"})
 
 }
 
 function download(){
 
-if(!processedBuffer){
-alert("Process audio first")
-return
-}
+if(!processedBuffer) return alert("Process first")
 
-alert("For full export use browser recording or extend with encoder.")
+let wav = bufferToWave(processedBuffer)
+
+let a = document.createElement("a")
+a.href = URL.createObjectURL(wav)
+a.download = "roblox_fixed_audio.wav"
+a.click()
 
 }
 
