@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Roblox Audio Effect Fixer</title>
+<title>Roblox Audio FX</title>
 
-<script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
 
 <style>
 body{
@@ -15,20 +15,12 @@ text-align:center;
 padding:40px;
 }
 
-.container{
-background:#1e293b;
-padding:30px;
-border-radius:12px;
-max-width:600px;
-margin:auto;
-}
-
 button{
+padding:12px 20px;
 background:#3b82f6;
 border:none;
-padding:12px 20px;
-color:white;
 border-radius:8px;
+color:white;
 cursor:pointer;
 margin:10px;
 }
@@ -37,57 +29,47 @@ margin:10px;
 
 <body>
 
-<h1>Roblox Audio Effect Fixer</h1>
+<h1>Roblox Audio Effect Processor</h1>
 
-<div class="container">
-
-<input type="file" id="file">
+<input type="file" id="audio">
 
 <br>
 
-<button onclick="process()">Apply Effects</button>
+<button onclick="process()">Process Audio</button>
 
 <br><br>
 
-<audio id="player" controls></audio>
-
-</div>
+<a id="download"></a>
 
 <script>
 
-let player = document.getElementById("player")
+const { createFFmpeg, fetchFile } = FFmpeg
+const ffmpeg = createFFmpeg({ log: true })
 
 async function process(){
 
-const file = document.getElementById("file").files[0]
+const file = document.getElementById("audio").files[0]
 if(!file) return alert("Upload audio")
 
-const url = URL.createObjectURL(file)
+if(!ffmpeg.isLoaded()) await ffmpeg.load()
 
-await Tone.start()
+ffmpeg.FS("writeFile","input.mp3", await fetchFile(file))
 
-const playerTone = new Tone.Player(url)
+await ffmpeg.run(
+"-i","input.mp3",
+"-af",
+"equalizer=f=120:t=q:w=1:g=3,equalizer=f=1000:t=q:w=1:g=2,equalizer=f=6000:t=q:w=1:g=4,acompressor=threshold=-12dB:ratio=2",
+"output.mp3"
+)
 
-const eq = new Tone.EQ3({
-low:3,
-mid:2,
-high:4,
-lowFrequency:120,
-highFrequency:6000
-})
+const data = ffmpeg.FS("readFile","output.mp3")
 
-const saturator = new Tone.Distortion(0.1)
+const url = URL.createObjectURL(new Blob([data.buffer],{type:"audio/mp3"}))
 
-const compressor = new Tone.Compressor({
-ratio:2,
-threshold:-12
-})
-
-playerTone.chain(eq,saturator,compressor,Tone.Destination)
-
-playerTone.start()
-
-player.src = url
+const a = document.getElementById("download")
+a.href = url
+a.download = "roblox_fixed_audio.mp3"
+a.innerText = "Download processed audio"
 
 }
 
