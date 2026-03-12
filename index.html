@@ -1,79 +1,75 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Roblox Audio FX</title>
-
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
-
-<style>
-body{
-font-family:Arial;
-background:#0f172a;
-color:white;
-text-align:center;
-padding:40px;
-}
-
-button{
-padding:12px 20px;
-background:#3b82f6;
-border:none;
-border-radius:8px;
-color:white;
-cursor:pointer;
-margin:10px;
-}
-</style>
+    <title>Roblox Audio Processor</title>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 50px; }
+        .box { border: 2px dashed #444; padding: 20px; border-radius: 10px; display: inline-block; }
+        input, button { margin: 10px; cursor: pointer; }
+        .controls { margin-top: 20px; display: flex; flex-direction: column; align-items: center; }
+    </style>
 </head>
-
 <body>
 
-<h1>Roblox Audio Effect Processor</h1>
+    <h1>Bypass/Hypass Sound Maker</h1>
+    <div class="box">
+        <input type="file" id="audioFile" accept="audio/*">
+        <div class="controls">
+            <label>Distorsión (Saturación): <input type="range" id="dist" min="0" max="100" value="80"></label>
+            <label>Filtro High Pass (Hz): <input type="range" id="hpf" min="500" max="5000" value="2000"></label>
+            <button onclick="processAudio()">Reproducir con Efecto</button>
+        </div>
+    </div>
 
-<input type="file" id="audio">
+    <script>
+        let audioCtx, source, distortion, biquadFilter;
 
-<br>
+        function processAudio() {
+            const file = document.getElementById('audioFile').files[0];
+            if (!file) return alert("Sube un audio primero");
 
-<button onclick="process()">Process Audio</button>
+            if (audioCtx) audioCtx.close();
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-<br><br>
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const buffer = await audioCtx.decodeAudioData(e.target.result);
+                
+                source = audioCtx.createBufferSource();
+                source.buffer = buffer;
 
-<a id="download"></a>
+                // 1. Crear Distorsión (WaveShaper)
+                distortion = audioCtx.createWaveShaper();
+                distortion.curve = makeDistortionCurve(document.getElementById('dist').value * 10);
+                distortion.oversample = '4x';
 
-<script>
+                // 2. Crear Filtro High Pass (Corta bajos)
+                biquadFilter = audioCtx.createBiquadFilter();
+                biquadFilter.type = "highpass";
+                biquadFilter.frequency.value = document.getElementById('hpf').value;
 
-const { createFFmpeg, fetchFile } = FFmpeg
-const ffmpeg = createFFmpeg({ log: true })
+                // Conectar: Source -> Distorsión -> Filtro -> Salida
+                source.connect(distortion);
+                distortion.connect(biquadFilter);
+                biquadFilter.connect(audioCtx.destination);
 
-async function process(){
+                source.start();
+            };
+            reader.readAsArrayBuffer(file);
+        }
 
-const file = document.getElementById("audio").files[0]
-if(!file) return alert("Upload audio")
-
-if(!ffmpeg.isLoaded()) await ffmpeg.load()
-
-ffmpeg.FS("writeFile","input.mp3", await fetchFile(file))
-
-await ffmpeg.run(
-"-i","input.mp3",
-"-af",
-"equalizer=f=120:t=q:w=1:g=3,equalizer=f=1000:t=q:w=1:g=2,equalizer=f=6000:t=q:w=1:g=4,acompressor=threshold=-12dB:ratio=2",
-"output.mp3"
-)
-
-const data = ffmpeg.FS("readFile","output.mp3")
-
-const url = URL.createObjectURL(new Blob([data.buffer],{type:"audio/mp3"}))
-
-const a = document.getElementById("download")
-a.href = url
-a.download = "roblox_fixed_audio.mp3"
-a.innerText = "Download processed audio"
-
-}
-
-</script>
-
+        // Algoritmo matemático para saturar la onda
+        function makeDistortionCurve(amount) {
+            const k = typeof amount === 'number' ? amount : 50;
+            const n_samples = 44100;
+            const curve = new Float32Array(n_samples);
+            const deg = Math.PI / 180;
+            for (let i = 0; i < n_samples; ++i) {
+                const x = (i * 2) / n_samples - 1;
+                curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
+            }
+            return curve;
+        }
+    </script>
 </body>
 </html>
