@@ -1,74 +1,132 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>Roblox Audio Processor</title>
+    <meta charset="UTF-8">
+    <title>Roblox Bypass Audio Generator</title>
     <style>
-        body { font-family: sans-serif; background: #121212; color: white; text-align: center; padding: 50px; }
-        .box { border: 2px dashed #444; padding: 20px; border-radius: 10px; display: inline-block; }
-        input, button { margin: 10px; cursor: pointer; }
-        .controls { margin-top: 20px; display: flex; flex-direction: column; align-items: center; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f0f0f; color: #00ff41; text-align: center; padding: 40px; }
+        .container { border: 2px solid #00ff41; padding: 30px; border-radius: 15px; display: inline-block; background: #1a1a1a; box-shadow: 0 0 20px rgba(0,255,65,0.2); }
+        input[type="range"] { width: 100%; accent-color: #00ff41; }
+        button { background: #00ff41; color: black; border: none; padding: 12px 24px; font-weight: bold; border-radius: 5px; cursor: pointer; margin-top: 15px; width: 100%; }
+        button:hover { background: #00cc33; }
+        .control-group { margin: 20px 0; text-align: left; }
+        label { font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
-    <h1>Bypass/Hypass Sound Maker</h1>
-    <div class="box">
-        <input type="file" id="audioFile" accept="audio/*">
-        <div class="controls">
-            <label>Distorsión (Saturación): <input type="range" id="dist" min="0" max="100" value="80"></label>
-            <label>Filtro High Pass (Hz): <input type="range" id="hpf" min="500" max="5000" value="2000"></label>
-            <button onclick="processAudio()">Reproducir con Efecto</button>
+    <div class="container">
+        <h2>ROBLOX AUDIO MODDER</h2>
+        <input type="file" id="audioInput" accept="audio/*">
+        
+        <div class="control-group">
+            <label>Saturación / Distorsión (Bypass)</label>
+            <input type="range" id="distRange" min="50" max="400" value="150">
         </div>
+
+        <div class="control-group">
+            <label>Frecuencia High Pass (Agudos)</label>
+            <input type="range" id="hpfRange" min="800" max="6000" value="2500">
+        </div>
+
+        <button id="downloadBtn">PROCESAR Y DESCARGAR (.WAV)</button>
+        <p id="status" style="font-size: 0.8em; color: #888; margin-top: 10px;"></p>
     </div>
 
     <script>
-        let audioCtx, source, distortion, biquadFilter;
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('audioInput');
+            const status = document.getElementById('status');
+            if (fileInput.files.length === 0) return alert("Sube un archivo primero");
 
-        function processAudio() {
-            const file = document.getElementById('audioFile').files[0];
-            if (!file) return alert("Sube un audio primero");
+            status.innerText = "Procesando... espera un momento";
+            
+            const arrayBuffer = await fileInput.files[0].arrayBuffer();
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
-            if (audioCtx) audioCtx.close();
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            // Setup Offline Context para renderizar rápido
+            const offlineCtx = new OfflineAudioContext(
+                audioBuffer.numberOfChannels,
+                audioBuffer.length,
+                audioBuffer.sampleRate
+            );
 
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const buffer = await audioCtx.decodeAudioData(e.target.result);
-                
-                source = audioCtx.createBufferSource();
-                source.buffer = buffer;
+            // Nodos de efecto
+            const source = offlineCtx.createBufferSource();
+            source.buffer = audioBuffer;
 
-                // 1. Crear Distorsión (WaveShaper)
-                distortion = audioCtx.createWaveShaper();
-                distortion.curve = makeDistortionCurve(document.getElementById('dist').value * 10);
-                distortion.oversample = '4x';
+            const distortion = offlineCtx.createWaveShaper();
+            distortion.curve = makeDistortionCurve(document.getElementById('distRange').value);
+            
+            const biquadFilter = offlineCtx.createBiquadFilter();
+            biquadFilter.type = "highpass";
+            biquadFilter.frequency.value = document.getElementById('hpfRange').value;
 
-                // 2. Crear Filtro High Pass (Corta bajos)
-                biquadFilter = audioCtx.createBiquadFilter();
-                biquadFilter.type = "highpass";
-                biquadFilter.frequency.value = document.getElementById('hpf').value;
+            // Conexión: Source -> Distorsión -> High Pass -> Destination
+            source.connect(distortion);
+            distortion.connect(biquadFilter);
+            biquadFilter.connect(offlineCtx.destination);
 
-                // Conectar: Source -> Distorsión -> Filtro -> Salida
-                source.connect(distortion);
-                distortion.connect(biquadFilter);
-                biquadFilter.connect(audioCtx.destination);
+            source.start();
+            
+            const renderedBuffer = await offlineCtx.startRendering();
+            saveAsWav(renderedBuffer);
+            status.innerText = "¡Descarga lista!";
+        });
 
-                source.start();
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        // Algoritmo matemático para saturar la onda
         function makeDistortionCurve(amount) {
-            const k = typeof amount === 'number' ? amount : 50;
             const n_samples = 44100;
             const curve = new Float32Array(n_samples);
-            const deg = Math.PI / 180;
             for (let i = 0; i < n_samples; ++i) {
                 const x = (i * 2) / n_samples - 1;
-                curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
+                // Algoritmo de saturación fuerte
+                curve[i] = ( (3 + amount) * x * 20 * (Math.PI / 180) ) / (Math.PI + amount * Math.abs(x));
             }
             return curve;
+        }
+
+        function saveAsWav(buffer) {
+            const length = buffer.length * buffer.numberOfChannels * 2 + 44;
+            const view = new DataView(new ArrayBuffer(length));
+            const channels = [];
+            for (let i = 0; i < buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
+
+            // Escribir cabecera WAV
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, length - 8, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, buffer.numberOfChannels, true);
+            view.setUint32(24, buffer.sampleRate, true);
+            view.setUint32(28, buffer.sampleRate * 2 * buffer.numberOfChannels, true);
+            view.setUint16(32, buffer.numberOfChannels * 2, true);
+            view.setUint16(34, 16, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, length - 44, true);
+
+            // Escribir datos de audio
+            let offset = 44;
+            for (let i = 0; i < buffer.length; i++) {
+                for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+                    let s = Math.max(-1, Math.min(1, channels[channel][i]));
+                    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                    offset += 2;
+                }
+            }
+
+            const blob = new Blob([view.buffer], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "bypassed_audio.wav";
+            a.click();
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
         }
     </script>
 </body>
