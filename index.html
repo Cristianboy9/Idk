@@ -2,49 +2,59 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>THE LOUDEST ROBLOX TOOL 2.5x</title>
+    <title>Roblox Audio Booster (2.5x + Volumen)</title>
     <style>
-        body { font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #000; color: #0f0; margin: 0; }
-        .box { border: 3px solid #0f0; padding: 30px; border-radius: 10px; text-align: center; box-shadow: 0 0 20px #0f0; width: 380px; }
-        h1 { font-size: 1.8rem; text-shadow: 2px 2px #000; }
-        .warning { color: #f00; font-size: 0.7rem; margin-bottom: 20px; font-weight: bold; }
-        .loud-option { background: #111; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px dashed #0f0; }
-        input[type="checkbox"] { transform: scale(1.8); cursor: pointer; }
-        button { background: #0f0; color: #000; border: none; padding: 15px; cursor: pointer; font-weight: bold; width: 100%; display: none; font-size: 1.1rem; }
-        #status { margin-top: 20px; color: #fff; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #0a0a0a; color: white; margin: 0; }
+        .box { background: #1a1a1a; padding: 40px; border-radius: 20px; text-align: center; border: 2px solid #ff4500; box-shadow: 0 0 20px rgba(255, 69, 0, 0.3); width: 350px; }
+        h1 { color: #ff4500; font-size: 1.5rem; margin-bottom: 10px; }
+        p { color: #888; font-size: 0.9rem; }
+        input { margin-top: 20px; width: 100%; }
+        /* Estilo para el check de Loud */
+        .loud-container { margin: 20px 0; background: #222; padding: 10px; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px dashed #ff4500; }
+        .loud-container input { width: auto; margin: 0; transform: scale(1.3); cursor: pointer; }
+        .loud-container label { font-weight: bold; color: #00ff88; cursor: pointer; }
+        
+        button { background: #ff4500; color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 20px; width: 100%; display: none; transition: 0.3s; }
+        button:hover { background: #ff6347; transform: scale(1.02); }
+        #status { margin-top: 15px; color: #00ff88; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="box">
-    <h1>LOUD PREP (2.5x)</h1>
-    <div class="warning">¡CUIDADO! EL MODO LOUD PUEDE DAÑAR OÍDOS</div>
+    <h1>Roblox Booster 2.5x</h1>
+    <p>Aumenta volumen y acelera para usar en <b>Pitch 0.4</b></p>
     
     <input type="file" id="upload" accept="audio/*">
 
-    <div class="loud-option">
-        <label><input type="checkbox" id="loudCheck"> MODO LOUDEST (BYPASS) 🔥</label>
+    <!-- EL NUEVO CHECK DE LOUD -->
+    <div class="loud-container">
+        <input type="checkbox" id="loudCheck">
+        <label for="loudCheck">¿ACTIVAR MODO LOUD? 🔥</label>
     </div>
-
-    <button id="downloadBtn">GENERAR AUDIO PARA ROBLOX</button>
-    <div id="status">Esperando archivo...</div>
+    
+    <div id="status"></div>
+    
+    <button id="downloadBtn">DESCARGAR AUDIO POTENCIADO</button>
 </div>
 
 <script>
     const upload = document.getElementById('upload');
     const downloadBtn = document.getElementById('downloadBtn');
-    const loudCheck = document.getElementById('loudCheck');
+    const loudCheck = document.getElementById('loudCheck'); // Referencia al check
     const status = document.getElementById('status');
     let audioBuffer;
 
     upload.onchange = async (e) => {
-        const file = e.target.files;
+        const file = e.target.files[0];
         if (!file) return;
-        status.innerText = "Decodificando...";
+
+        status.innerText = "Cargando audio...";
         const arrayBuffer = await file.arrayBuffer();
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        status.innerText = "¡Audio listo!";
+
+        status.innerText = "¡Audio listo para potenciar!";
         downloadBtn.style.display = "block";
     };
 
@@ -59,39 +69,37 @@
         source.buffer = audioBuffer;
         source.playbackRate.value = 2.5;
 
-        // --- SISTEMA DE MAXIMIZACIÓN ---
-        const compressor = offlineCtx.createDynamicsCompressor();
+        // --- SISTEMA DE VOLUMEN + LOUD ---
         const gainNode = offlineCtx.createGain();
+        const compressor = offlineCtx.createDynamicsCompressor();
 
         if (loudCheck.checked) {
-            // Configuramos el compresor para "aplastar" el audio al máximo (LOUD)
-            compressor.threshold.value = -50; // Detecta casi todo el sonido
-            compressor.knee.value = 0;        // Curva dura
-            compressor.ratio.value = 20;      // Compresión extrema
-            compressor.attack.value = 0;      // Instantáneo
-            compressor.release.value = 0.1;
-
-            gainNode.gain.value = 15.0; // Multiplicador de volumen masivo
+            // MODO LOUD EXTREMO (Para sonar más que otros)
+            compressor.threshold.value = -50;
+            compressor.ratio.value = 20;
+            gainNode.gain.value = 15.0; // Volumen masivo
         } else {
-            gainNode.gain.value = 1.5;
+            // MODO NORMAL
+            gainNode.gain.value = 2.0; // Volumen doble
         }
-
+        
+        // Conexión: Source -> Compresor -> Ganancia -> Destino
         source.connect(compressor);
         compressor.connect(gainNode);
         gainNode.connect(offlineCtx.destination);
-        // -------------------------------
+        // ------------------------------
 
         source.start();
-        status.innerText = "Maximizando volumen...";
+        status.innerText = "Procesando volumen y velocidad...";
 
         offlineCtx.startRendering().then(renderedBuffer => {
             const wavBlob = bufferToWave(renderedBuffer, renderedBuffer.length);
             const url = URL.createObjectURL(wavBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = "ULTRA_LOUD_2.5x.wav";
+            a.download = loudCheck.checked ? "audio_ULTRA_LOUD_2.5x.wav" : "audio_BOOST_2.5x.wav";
             a.click();
-            status.innerText = "¡Descargado! Ponlo en Pitch 0.4 en Roblox.";
+            status.innerText = "¡Descargado! Súbelo y usa Pitch 0.4";
         });
     };
 
