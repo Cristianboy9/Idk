@@ -255,7 +255,6 @@
     }
     .loud-row:hover { border-color: #440000; }
     .loud-row.on { border-color: #770000; background: rgba(120,0,0,0.07); }
-    .loud-texts {}
     .loud-name {
       font-size: 0.8rem;
       letter-spacing: 2px;
@@ -361,7 +360,7 @@
     <div class="title-block">
       <div class="pre-label" id="lbl-pre">AUDIO BOOSTER</div>
       <h1>BYPASS<span style="color:#660000">4</span>ME</h1>
-      <p class="subtitle" id="lbl-sub">Acelera 2.5x y amplifica el volumen. Usa <b style="color:#cc0000">Pitch 0.4</b> en Roblox.</p>
+      <p class="subtitle" id="lbl-sub">Acelera 10x y amplifica el volumen. Usa <b style="color:#cc0000">Pitch 0.1</b> en Roblox.</p>
     </div>
 
     <hr class="sep">
@@ -417,11 +416,14 @@
 </div>
 
 <script>
+  // ─── CONFIG ──────────────────────────────────────────────────────
+  const SPEED = 10; // velocidad de aceleración (Pitch en Roblox = 1 / SPEED = 0.1)
+
   // ─── TRANSLATIONS ────────────────────────────────────────────────
   const LANGS = {
     es: {
       pre: 'AUDIO BOOSTER',
-      sub: 'Acelera 2.5x y amplifica el volumen. Usa <b style="color:#cc0000">Pitch 0.4</b> en Roblox.',
+      sub: 'Acelera 10x y amplifica el volumen. Usa <b style="color:#cc0000">Pitch 0.1</b> en Roblox.',
       upload: 'SELECCIONAR AUDIO',
       loud: '⚡ MODO LOUD',
       loudHint: 'Activar compresión y ganancia extra',
@@ -433,12 +435,12 @@
       loading: 'Cargando audio...',
       ready: '¡Audio listo!',
       processing: 'Procesando...',
-      done: '¡Descargado! Usa Pitch 0.4',
+      done: '¡Descargado! Usa Pitch 0.1',
       footer: 'bypass4me · herramienta de audio roblox'
     },
     en: {
       pre: 'AUDIO BOOSTER',
-      sub: 'Speed up 2.5x and amplify volume. Use <b style="color:#cc0000">Pitch 0.4</b> in Roblox.',
+      sub: 'Speed up 10x and amplify volume. Use <b style="color:#cc0000">Pitch 0.1</b> in Roblox.',
       upload: 'SELECT AUDIO FILE',
       loud: '⚡ LOUD MODE',
       loudHint: 'Enable compression and extra gain',
@@ -450,12 +452,12 @@
       loading: 'Loading audio...',
       ready: 'Audio ready!',
       processing: 'Processing...',
-      done: 'Downloaded! Use Pitch 0.4',
+      done: 'Downloaded! Use Pitch 0.1',
       footer: 'bypass4me · roblox audio tool'
     },
     ru: {
       pre: 'УСИЛИТЕЛЬ АУДИО',
-      sub: 'Ускорение 2.5x и усиление звука. Используй <b style="color:#cc0000">Pitch 0.4</b> в Roblox.',
+      sub: 'Ускорение 10x и усиление звука. Используй <b style="color:#cc0000">Pitch 0.1</b> в Roblox.',
       upload: 'ВЫБРАТЬ АУДИО',
       loud: '⚡ РЕЖИМ LOUD',
       loudHint: 'Включить сжатие и усиление',
@@ -467,7 +469,7 @@
       loading: 'Загрузка...',
       ready: 'Аудио готово!',
       processing: 'Обработка...',
-      done: 'Скачано! Используй Pitch 0.4',
+      done: 'Скачано! Используй Pitch 0.1',
       footer: 'bypass4me · инструмент аудио roblox'
     }
   };
@@ -545,13 +547,13 @@
 
     const offlineCtx = new OfflineAudioContext(
       audioBuffer.numberOfChannels,
-      Math.ceil(audioBuffer.length / 2.5),
+      Math.ceil(audioBuffer.length / SPEED),
       audioBuffer.sampleRate
     );
 
     const source = offlineCtx.createBufferSource();
     source.buffer = audioBuffer;
-    source.playbackRate.value = 2.5;
+    source.playbackRate.value = SPEED;
 
     const gainNode = offlineCtx.createGain();
     const compressor = offlineCtx.createDynamicsCompressor();
@@ -588,7 +590,7 @@
     const a = document.createElement('a');
     a.href = url;
     const modeTag = loudOn ? loudMode.toUpperCase() : 'BOOST';
-    a.download = `bypass4me_${modeTag}_2.5x.wav`;
+    a.download = `bypass4me_${modeTag}_${SPEED}x.wav`;
     a.click();
     setStatus(t.done, true);
   }
