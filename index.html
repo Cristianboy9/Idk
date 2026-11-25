@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bypass4Me</title>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <style>
@@ -53,6 +54,7 @@
       position: relative;
       z-index: 5;
       width: 440px;
+      max-width: 100%;
       animation: fadeIn 0.6s ease;
     }
     @keyframes fadeIn {
@@ -168,6 +170,7 @@
       position: relative;
       transition: 0.3s;
       background: rgba(100,0,0,0.04);
+      margin-bottom: 14px;
     }
     .upload-zone:hover { border-color: #880000; background: rgba(150,0,0,0.08); }
     .upload-zone.ready { border-color: #cc0000; background: rgba(200,0,0,0.06); }
@@ -184,8 +187,9 @@
     }
     .upload-zone.ready .upload-text { color: #cc0000; }
 
-    /* Loud mode selector */
-    .loud-section { margin: 14px 0; }
+    /* Section blocks (pitch + loud mode) */
+    .loud-section { margin: 0 0 14px; }
+    .loud-section.hidden { display: none; }
     .loud-section-label {
       font-size: 0.62rem;
       letter-spacing: 3px;
@@ -255,7 +259,6 @@
     }
     .loud-row:hover { border-color: #440000; }
     .loud-row.on { border-color: #770000; background: rgba(120,0,0,0.07); }
-    .loud-texts {}
     .loud-name {
       font-size: 0.8rem;
       letter-spacing: 2px;
@@ -288,10 +291,6 @@
     }
     .loud-row.on .switch { background: #880000; }
     .loud-row.on .switch::after { left: 23px; background: #ff2200; box-shadow: 0 0 8px rgba(255,30,0,0.7); }
-
-    /* Mode grid — hidden when loud is OFF */
-    .loud-section { margin: 0 0 14px; }
-    .loud-section.hidden { display: none; }
 
     /* Status */
     #status {
@@ -361,7 +360,7 @@
     <div class="title-block">
       <div class="pre-label" id="lbl-pre">AUDIO BOOSTER</div>
       <h1>BYPASS<span style="color:#660000">4</span>ME</h1>
-      <p class="subtitle" id="lbl-sub">Acelera 2.5x y amplifica el volumen. Usa <b style="color:#cc0000">Pitch 0.4</b> en Roblox.</p>
+      <p class="subtitle" id="lbl-sub"></p>
     </div>
 
     <hr class="sep">
@@ -371,6 +370,28 @@
       <input type="file" id="upload" accept="audio/*">
       <span class="upload-icon">🔊</span>
       <div class="upload-text" id="lbl-upload">SELECCIONAR AUDIO</div>
+    </div>
+
+    <!-- Pitch selector -->
+    <div class="loud-section" id="pitchSection">
+      <div class="loud-section-label" id="lbl-pitch-label">PITCH EN ROBLOX</div>
+      <div class="mode-grid">
+        <button class="mode-btn active-normal" id="pitch-0.4" onclick="setPitch(0.4)">
+          <span class="mode-icon">🎚️</span>
+          <span class="mode-name">0.4</span>
+          <span class="mode-desc">×2.5</span>
+        </button>
+        <button class="mode-btn" id="pitch-0.5" onclick="setPitch(0.5)">
+          <span class="mode-icon">🎚️</span>
+          <span class="mode-name">0.5</span>
+          <span class="mode-desc">×2</span>
+        </button>
+        <button class="mode-btn" id="pitch-0.6" onclick="setPitch(0.6)">
+          <span class="mode-icon">🎚️</span>
+          <span class="mode-name">0.6</span>
+          <span class="mode-desc">×1.67</span>
+        </button>
+      </div>
     </div>
 
     <!-- Loud ON/OFF toggle -->
@@ -384,7 +405,7 @@
 
     <!-- Loud mode selector (visible solo si loud ON) -->
     <div class="loud-section hidden" id="modeSection">
-      <div class="loud-section-label" id="lbl-mode-label">MODO DE VOLUMEN</div>
+      <div class="loud-section-label" id="lbl-mode-label">NIVEL DE LOUD</div>
       <div class="mode-grid">
         <button class="mode-btn active-normal" id="btn-normal" onclick="setMode('normal')">
           <span class="mode-icon">🔈</span>
@@ -418,11 +439,13 @@
 
 <script>
   // ─── TRANSLATIONS ────────────────────────────────────────────────
+  // {s} = velocidad, {p} = pitch
   const LANGS = {
     es: {
       pre: 'AUDIO BOOSTER',
-      sub: 'Acelera 2.5x y amplifica el volumen. Usa <b style="color:#cc0000">Pitch 0.4</b> en Roblox.',
+      sub: 'Acelera {s}x y amplifica el volumen. Usa <b style="color:#cc0000">Pitch {p}</b> en Roblox.',
       upload: 'SELECCIONAR AUDIO',
+      pitchLabel: 'PITCH EN ROBLOX',
       loud: '⚡ MODO LOUD',
       loudHint: 'Activar compresión y ganancia extra',
       modeLabel: 'NIVEL DE LOUD',
@@ -433,13 +456,14 @@
       loading: 'Cargando audio...',
       ready: '¡Audio listo!',
       processing: 'Procesando...',
-      done: '¡Descargado! Usa Pitch 0.4',
+      done: '¡Descargado! Usa Pitch {p}',
       footer: 'bypass4me · herramienta de audio roblox'
     },
     en: {
       pre: 'AUDIO BOOSTER',
-      sub: 'Speed up 2.5x and amplify volume. Use <b style="color:#cc0000">Pitch 0.4</b> in Roblox.',
+      sub: 'Speed up {s}x and amplify volume. Use <b style="color:#cc0000">Pitch {p}</b> in Roblox.',
       upload: 'SELECT AUDIO FILE',
+      pitchLabel: 'ROBLOX PITCH',
       loud: '⚡ LOUD MODE',
       loudHint: 'Enable compression and extra gain',
       modeLabel: 'LOUD LEVEL',
@@ -450,13 +474,14 @@
       loading: 'Loading audio...',
       ready: 'Audio ready!',
       processing: 'Processing...',
-      done: 'Downloaded! Use Pitch 0.4',
+      done: 'Downloaded! Use Pitch {p}',
       footer: 'bypass4me · roblox audio tool'
     },
     ru: {
       pre: 'УСИЛИТЕЛЬ АУДИО',
-      sub: 'Ускорение 2.5x и усиление звука. Используй <b style="color:#cc0000">Pitch 0.4</b> в Roblox.',
+      sub: 'Ускорение {s}x и усиление звука. Используй <b style="color:#cc0000">Pitch {p}</b> в Roblox.',
       upload: 'ВЫБРАТЬ АУДИО',
+      pitchLabel: 'PITCH В ROBLOX',
       loud: '⚡ РЕЖИМ LOUD',
       loudHint: 'Включить сжатие и усиление',
       modeLabel: 'УРОВЕНЬ LOUD',
@@ -467,7 +492,7 @@
       loading: 'Загрузка...',
       ready: 'Аудио готово!',
       processing: 'Обработка...',
-      done: 'Скачано! Используй Pitch 0.4',
+      done: 'Скачано! Используй Pitch {p}',
       footer: 'bypass4me · инструмент аудио roblox'
     }
   };
@@ -476,6 +501,10 @@
   let audioBuffer = null;
   let loudOn = false;
   let loudMode = 'normal'; // 'normal' | 'medio' | 'super'
+  let pitch = 0.4;         // 0.4 | 0.5 | 0.6
+
+  const getSpeed = () => +(1 / pitch).toFixed(2);
+  const fmt = s => s.replace('{s}', getSpeed()).replace('{p}', pitch);
 
   function detectLang() {
     const nav = navigator.language || navigator.userLanguage || '';
@@ -489,8 +518,9 @@
     currentLang = lang;
     const t = LANGS[lang];
     document.getElementById('lbl-pre').textContent = t.pre;
-    document.getElementById('lbl-sub').innerHTML = t.sub;
+    document.getElementById('lbl-sub').innerHTML = fmt(t.sub);
     document.getElementById('lbl-upload').textContent = t.upload;
+    document.getElementById('lbl-pitch-label').textContent = t.pitchLabel;
     document.getElementById('lbl-loud').textContent = t.loud;
     document.getElementById('lbl-loud-hint').textContent = t.loudHint;
     document.getElementById('lbl-mode-label').textContent = t.modeLabel;
@@ -502,10 +532,18 @@
     document.getElementById('lbl-m-super-d').textContent = t.mSuperD;
     document.getElementById('lbl-btn').textContent = t.btn;
     document.getElementById('lbl-footer').textContent = t.footer;
-    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.lang-btn').forEach(b => {
-      if (b.textContent === lang.toUpperCase()) b.classList.add('active');
+      b.classList.toggle('active', b.textContent === lang.toUpperCase());
     });
+  }
+
+  function setPitch(p) {
+    pitch = p;
+    [0.4, 0.5, 0.6].forEach(v => {
+      document.getElementById('pitch-' + v).className =
+        'mode-btn' + (v === p ? ' active-normal' : '');
+    });
+    setLang(currentLang); // refresca los textos con el nuevo pitch
   }
 
   function toggleLoud() {
@@ -543,15 +581,17 @@
     const t = LANGS[currentLang];
     setStatus(t.processing, false);
 
+    const speed = 1 / pitch;
+
     const offlineCtx = new OfflineAudioContext(
       audioBuffer.numberOfChannels,
-      Math.ceil(audioBuffer.length / 2.5),
+      Math.ceil(audioBuffer.length / speed),
       audioBuffer.sampleRate
     );
 
     const source = offlineCtx.createBufferSource();
     source.buffer = audioBuffer;
-    source.playbackRate.value = 2.5;
+    source.playbackRate.value = speed;
 
     const gainNode = offlineCtx.createGain();
     const compressor = offlineCtx.createDynamicsCompressor();
@@ -588,9 +628,9 @@
     const a = document.createElement('a');
     a.href = url;
     const modeTag = loudOn ? loudMode.toUpperCase() : 'BOOST';
-    a.download = `bypass4me_${modeTag}_2.5x.wav`;
+    a.download = `bypass4me_${modeTag}_P${pitch}.wav`;
     a.click();
-    setStatus(t.done, true);
+    setStatus(fmt(t.done), true);
   }
 
   function setStatus(msg, ok) {
